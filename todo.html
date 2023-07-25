@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple To-do list</title>
+    <style>
+        :root {
+            --default-border-color: #555;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;            
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 20px);
+            margin-inline: auto;
+            max-width: 800px;            
+        }
+
+        header {
+            margin: 0 20px 20px 20px;            
+        }
+
+        header h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+
+        main {
+            flex-grow: 1;
+            margin-inline: 20px;
+        }
+
+        footer {
+            font-size: 0.8em;
+            color: gray;
+            padding-top: 20px;
+            margin-inline: 20px;
+        }
+
+        input[type="text"] {
+            border: 1px solid #ccc;
+            padding: 5px;
+            border-radius: 5px;
+            flex-grow: 1;
+        }
+
+        button {
+            cursor: pointer;
+            border-radius: 5px;
+            border: 1px solid var(--default-border-color);
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        dialog {
+            border: 1px solid var(--default-border-color);
+            border-radius: 20px;
+        }
+
+        dialog form {
+            display: flex;
+            flex-direction: column;
+            gap: 1em;
+            padding: 1em;
+            min-height: 100%;
+        }
+
+        details {
+            border: 1px solid var(--default-border-color);
+            border-radius: 3px;
+            width: 100%;            
+            margin-bottom: 20px;
+            font-size: .85em;
+        }
+        
+        summary {
+            cursor: pointer;
+            padding: 5px;
+            background-color: #eee;
+        }
+
+        details[open] summary {
+            border-bottom: 1px solid var(--default-border-color);
+        }
+
+        details > p {
+            margin: 10px;
+        }
+
+        dialog button {
+            min-width: 5em;
+        }
+
+        .complete {
+            text-decoration: line-through;
+            color: #ccc;
+        }
+
+        .incomplete {
+            text-decoration: none;
+        }
+
+        .date-created {
+            color: #ccc;
+            font-size: 0.8em;
+            margin-left: 1em;
+        }
+
+        #todo-form {
+            margin-bottom: 20px;
+            display: flex;
+            gap: .5em;
+            border: 1px solid var(--default-border-color);
+            border-radius: 5px;
+            padding: 20px;
+            background-color: #eee;
+        }
+
+        #add-button, #clear-button {
+            display:flex;
+            gap: 5px;
+            align-items: center;
+            justify-content: space-around;
+        }
+
+        #todo-list {
+            list-style-type: none;
+            padding-inline-start: 0;
+            border: 1px solid var(--default-border-color);
+            border-radius: 5px;
+        }
+
+        #todo-list li {
+            border-bottom: 1px solid var(--default-border-color);
+            padding-inline: 10px;
+            padding-block: 0;
+            margin-block: 0;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            cursor: pointer;
+        }
+
+        #todo-list li:hover {
+            background-color: #f7f7f7;
+        }
+
+        #todo-list li::before,
+        #todo-list li::after {
+            content: '';
+            width: 0px;
+            height: 0px;
+            display: block;
+            text-align: center;
+            text-align: center;
+            margin-left: auto;
+            margin-right: auto;
+            grid-column-start: 1;
+            grid-column-end: 4;
+            border: 5px solid transparent;
+
+        }
+
+        #todo-list li.before-active::before {
+            border-bottom-color: var(--default-border-color);
+        }
+
+        #todo-list li.after-active::after {
+            border-top-color: var(--default-border-color);
+        }
+
+        li:has(+ li.before-active)::after {
+            border-top-color: var(--default-border-color) !important;
+        }
+
+        li.after-active+li::before {
+            border-bottom-color: var(--default-border-color) !important;
+        }
+
+        #todo-list li * {
+            pointer-events: none;
+        }
+
+        .delete-button {
+            cursor: pointer;
+            pointer-events: auto !important;
+        }
+
+        #todo-list li:last-child {
+            border-bottom: none;
+        }
+
+        .dragging {
+            background-color: lightblue !important;
+            opacity: 0.25;
+        }
+    </style>
+    <script>
+        /**
+         * The todo items
+         */
+        const todoItems = [];
+
+        /**
+         * The todo list element
+         * 
+         * @type {HTMLUListElement}
+         */
+        let todoListElement;
+
+        /**
+         * The todo form element
+         * 
+         * @type {HTMLFormElement}
+         */
+        let todoFormElement;
+
+        /**
+         * The todo input element
+         * 
+         * @type {HTMLInputElement}
+         */
+        let todoInputElement;
+
+        /**
+         * The add button element
+         * 
+         * @type {HTMLButtonElement}
+         */
+        let addButtonElement;
+
+        /**
+         * The clear button element
+         * 
+         * @type {HTMLButtonElement}
+         */
+        let clearButtonElement;
+
+        /**
+         * The clear all dialog element
+         * 
+         * @type {HTMLDialogElement}
+         */
+        let clearAllDialogElement;
+
+        /**
+         * Initializes the page (called when the DOM is loaded)
+         */
+        async function initialize() {
+            todoListElement = document.getElementById("todo-list");
+            todoFormElement = document.getElementById("todo-form");
+            todoInputElement = document.getElementById("todo-input");
+            addButtonElement = document.getElementById("add-button");
+            clearButtonElement = document.getElementById("clear-button");
+            clearAllDialogElement = document.getElementById("clear-all-dialog");
+
+            if (localStorage.getItem("todo-list")) {
+                const todoItemsString = localStorage.getItem("todo-list");
+                const todoItemsArray = todoItemsString ? JSON.parse(todoItemsString) : [];
+
+                // Fix date deserialization
+                for (const itm of todoItemsArray) 
+                    if (itm != null) 
+                        itm.dateCreated = new Date(itm?.dateCreated);
+
+                todoItems.push(...todoItemsArray);
+            }
+
+            todoFormElement.addEventListener(
+                "submit",
+                (event) => {
+                    event.preventDefault();
+                    addItem();
+                }
+            );
+
+            clearButtonElement.addEventListener("click", showClearItemsDialog);
+            clearAllDialogElement.addEventListener("close", () => {
+                if (clearAllDialogElement.returnValue == "yes") 
+                    clearItems();
+            });
+            setTimeout(refreshTodoList, 0);
+        }
+
+        /**
+         * Refreshes the todo list
+         */
+        function refreshTodoList() {
+            localStorage.setItem("todo-list", JSON.stringify(todoItems));
+            todoListElement.innerHTML = "";
+
+            for (let i = 0; i < todoItems.length; i++) {
+                const todo = todoItems[i];
+
+                const todoListItemElement = document.createElement("li");
+                todoListItemElement.setAttribute("draggable", true);
+                todoListItemElement.classList.add(todo.completed ? "complete" : "incomplete");
+
+                todoListItemElement.addEventListener("dragstart", (e) => {
+                    e.dataTransfer.setData("text/plain", i);
+                    todoListItemElement.classList.add("dragging");
+                });
+
+                todoListElement.addEventListener("dragend", (e) => {
+                    todoListItemElement.classList.remove("dragging");
+                });
+
+                todoListItemElement.addEventListener("dragover", (e) => {
+                    e.preventDefault();
+
+                    var yCoord = e.clientY;
+                    var height = todoListItemElement.offsetHeight;
+                    var offset = yCoord - todoListItemElement.offsetTop;
+                    if (offset > height / 2) {
+                        todoListItemElement.classList.remove("before-active");
+                        todoListItemElement.classList.add("after-active");
+                    } else {
+                        todoListItemElement.classList.remove("after-active");
+                        todoListItemElement.classList.add("before-active");
+                    }
+                });
+
+                todoListItemElement.addEventListener("dragleave", (e) => {
+                    todoListItemElement.classList.remove("after-active");
+                    todoListItemElement.classList.remove("before-active");
+                });
+
+                todoListItemElement.addEventListener("drop", (e) => {
+                    e.preventDefault();
+                    todoListItemElement.classList.remove("after-active");
+                    todoListItemElement.classList.remove("before-active");
+
+                    var yCoord = e.clientY;
+                    var height = todoListItemElement.offsetHeight;
+                    var offset = yCoord - todoListItemElement.offsetTop;
+                    let fromIndex = e.dataTransfer.getData("text/plain");
+                    let insertIndex = (offset > height / 2) ? i : i - 1;
+
+                    if (insertIndex < fromIndex) {
+                        insertIndex++;
+                    }
+
+                    var newArray = [];
+                    for (var j = 0; j < todoItems.length; j++) {
+                        if (j != fromIndex) {
+                            newArray.push(todoItems[j]);
+                        }
+                    }
+                    newArray.splice(insertIndex, 0, todoItems[fromIndex]);
+                    todoItems.splice(0, todoItems.length);
+                    todoItems.push(...newArray);
+
+                    refreshTodoList();
+                });
+
+                todoListItemElement.addEventListener("click", () => {
+                    todo.completed = !todo.completed;
+                    refreshTodoList();
+                });
+
+                const textSpanElement = document.createElement("span");
+                textSpanElement.innerText = todo.text;
+                todoListItemElement.appendChild(textSpanElement);
+
+                const dateSpanElement = document.createElement("span");
+                try {
+                    dateSpanElement.innerText =
+                        todo.dateCreated ?
+                            getDateString(todo.dateCreated) :
+                            "";
+                } catch (error) { }
+                dateSpanElement.classList.add("date-created");
+                todoListItemElement.appendChild(dateSpanElement);
+
+                const stopIconTemplate = document.getElementById("stopIconTemplate");
+                const deleteSpanElement = document.createElement("span");
+                deleteSpanElement.classList.add("delete-button");
+                const deleteButtonElement = stopIconTemplate.content.cloneNode(true);
+                deleteSpanElement.appendChild(deleteButtonElement);
+                deleteSpanElement.addEventListener("click", (e) => deleteItem(e, i));
+
+                todoListItemElement.appendChild(deleteSpanElement);
+
+                todoListElement.appendChild(todoListItemElement);
+            }
+            todoInputElement.focus();
+        }
+
+        /**
+         * Adds an item to the todo list
+         */
+        async function addItem() {
+            const todoText = todoInputElement.value;
+            if (!todoText) return;
+            todoItems.push({ text: todoText, completed: false, dateCreated: new Date() });
+            todoInputElement.value = "";
+            refreshTodoList();
+        }
+
+        /**
+         * Deletes an item from the todo list
+         * 
+         * @param {number} index 
+         */
+        function deleteItem(e, index) {
+            e.cancelBubble = true;
+            todoItems.splice(index, 1);
+            refreshTodoList();
+        }
+
+        /**
+         * Shows the clear all items dialog
+         */
+        function showClearItemsDialog() {
+            clearAllDialogElement.showModal();
+        }
+
+        /**
+         * Clears all items from the todo list
+         */
+        function clearItems() {
+            todoItems.splice(0, todoItems.length);
+            refreshTodoList();
+        }
+
+        /**
+         * Gets a date in MM/DD/YYYY hh:MM AM/PM format
+         * @param {Date} date
+         */
+        function getDateString(date) {
+            const hours = date.getHours() % 12 || 12;
+            const amPm = date.getHours() >= 12 ? "PM" : "AM";
+            return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()} ${hours}:${date.getMinutes()} ${amPm}`;
+        }
+
+        addEventListener("DOMContentLoaded", initialize);
+    </script>
+</head>
+
+<body>
+    <header>
+        <h1>
+            <svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" fill="green" class="bi bi-file-check" viewBox="0 0 16 16">
+                <path d="M10.854 6.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 8.793l2.646-2.647a.5.5 0 0 1 .708 0z"/>
+                <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4zm0 1h8a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
+            </svg>
+            <span>ToDo List</span>
+        </h1>
+    </header>
+
+    <main>
+        <details open>
+            <summary>About</summary>
+            <p>
+                This is a single page web application providing a todo list that stores in local storage.
+                This application also is meant to demonstrate how much you can do in a web application without
+                using a framework, library, or build tool.
+            </p>
+            <p>
+                All images used are embedded as SVG.
+            </p>
+        </details>
+        <details>
+            <summary>Concepts</summary>
+            <p>
+                <ul>
+                    <li>Modern CSS</li>
+                    <li>Summary/Details</li>
+                    <li>DOM Manipulation</li>
+                    <li>Local Storage</li>
+                    <li>HTML5 Drag and Drop</li>
+                    <li>Declarative Form Validation</li>
+                    <li>SVG</li>
+                    <li>DataList / AutoComplete</li>    
+                    <li>CSS Variables</li>                
+                    <li>CSS Pseudo-elements</li>
+                </ul>
+            </p>
+        </details>
+
+        <form id="todo-form">
+            <input type="text" list="todo-datalist" id="todo-input" placeholder="Enter a new todo item" required
+                minlength="2">
+            <button id="add-button" type="submit" class="add-button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#0b0" class="bi bi-plus-circle-fill" viewBox="0 0 16 16">
+                    <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8.5 4.5a.5.5 0 0 0-1 0v3h-3a.5.5 0 0 0 0 1h3v3a.5.5 0 0 0 1 0v-3h3a.5.5 0 0 0 0-1h-3v-3z"/>
+                </svg>
+                Add Item
+            </button>
+        </form>
+
+        <ul id="todo-list"></ul>
+        <button id="clear-button">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="red" class="bi bi-trash3" viewBox="0 0 16 16">
+                <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5ZM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.506a.58.58 0 0 0-.01 0H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1h-.995a.59.59 0 0 0-.01 0H11Zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5h9.916Zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47ZM8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5Z"/>
+            </svg>
+            Clear All
+        </button>
+    </main>
+
+    <footer>
+        &copy; 2023 Michael Lambert
+    </footer>
+
+    <dialog id="clear-all-dialog">
+        <form>
+            <div class="dialog-body">
+                <p>Are you sure you want to clear all of the items?</p>
+            </div>
+            <div class="dialog-button-row">
+                <button value="yes" formmethod="dialog">Yes</button>
+                <button value="no" formmethod="dialog">No</button>
+            </div>
+        </form>
+    </dialog>
+
+    <template id="stopIconTemplate">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="gray" class="bi bi-trash3" viewBox="0 0 16 16">
+            <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5ZM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.506a.58.58 0 0 0-.01 0H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1h-.995a.59.59 0 0 0-.01 0H11Zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5h9.916Zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47ZM8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5Z"/>
+        </svg>
+    </template>
+    <datalist id="todo-datalist">
+        <option value="Complete JIRA Issues"></option>
+        <option value="Wash Dishes"></option>
+        <option value="Clean Room"></option>
+    </datalist>
+</body>
+
+</html>
