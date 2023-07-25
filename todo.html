@@ -386,7 +386,6 @@
 
                 todoListElement.appendChild(todoListItemElement);
             }
-            todoInputElement.focus();
         }
 
         /**
@@ -398,6 +397,7 @@
             todoItems.push({ text: todoText, completed: false, dateCreated: new Date() });
             todoInputElement.value = "";
             refreshTodoList();
+            todoInputElement.focus();
         }
 
         /**
