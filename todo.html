@@ -199,56 +199,14 @@
         }
     </style>
     <script>
-        /**
-         * The todo items
-         */
         const todoItems = [];
-
-        /**
-         * The todo list element
-         * 
-         * @type {HTMLUListElement}
-         */
         let todoListElement;
-
-        /**
-         * The todo form element
-         * 
-         * @type {HTMLFormElement}
-         */
         let todoFormElement;
-
-        /**
-         * The todo input element
-         * 
-         * @type {HTMLInputElement}
-         */
         let todoInputElement;
-
-        /**
-         * The add button element
-         * 
-         * @type {HTMLButtonElement}
-         */
         let addButtonElement;
-
-        /**
-         * The clear button element
-         * 
-         * @type {HTMLButtonElement}
-         */
         let clearButtonElement;
-
-        /**
-         * The clear all dialog element
-         * 
-         * @type {HTMLDialogElement}
-         */
         let clearAllDialogElement;
 
-        /**
-         * Initializes the page (called when the DOM is loaded)
-         */
         async function initialize() {
             todoListElement = document.getElementById("todo-list");
             todoFormElement = document.getElementById("todo-form");
@@ -285,9 +243,6 @@
             setTimeout(refreshTodoList, 0);
         }
 
-        /**
-         * Refreshes the todo list
-         */
         function refreshTodoList() {
             localStorage.setItem("todo-list", JSON.stringify(todoItems));
             todoListElement.innerHTML = "";
@@ -388,9 +343,6 @@
             }
         }
 
-        /**
-         * Adds an item to the todo list
-         */
         async function addItem() {
             const todoText = todoInputElement.value;
             if (!todoText) return;
@@ -400,36 +352,21 @@
             todoInputElement.focus();
         }
 
-        /**
-         * Deletes an item from the todo list
-         * 
-         * @param {number} index 
-         */
         function deleteItem(e, index) {
             e.cancelBubble = true;
             todoItems.splice(index, 1);
             refreshTodoList();
         }
 
-        /**
-         * Shows the clear all items dialog
-         */
         function showClearItemsDialog() {
             clearAllDialogElement.showModal();
         }
 
-        /**
-         * Clears all items from the todo list
-         */
         function clearItems() {
             todoItems.splice(0, todoItems.length);
             refreshTodoList();
         }
 
-        /**
-         * Gets a date in MM/DD/YYYY hh:MM AM/PM format
-         * @param {Date} date
-         */
         function getDateString(date) {
             const hours = date.getHours() % 12 || 12;
             const amPm = date.getHours() >= 12 ? "PM" : "AM";
